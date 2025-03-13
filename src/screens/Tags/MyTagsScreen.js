@@ -1,16 +1,15 @@
-import {FlatList, Image, Pressable, StyleSheet, Text, View} from 'react-native';
+import {FlatList, Pressable, StyleSheet, Text, View} from 'react-native';
 import React, {useCallback, useEffect, useState} from 'react';
-import {COLORS} from '../config/constants';
-import CustomTextInput from '../components/CustomTextInput';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import {COLORS} from '../../config/constants';
 import {Divider, Menu, TextInput} from 'react-native-paper';
-import {useSelector} from 'react-redux';
-import AppBar from '../components/AppBar';
-import {contact_people_list_api} from '../api';
+import CustomTextInput from '../../components/CustomTextInput';
+import AppBar from '../../components/AppBar';
 import {showMessage} from 'react-native-flash-message';
+import {contact_people_list_api, transaction_tags_list_api} from '../../api';
+import {useSelector} from 'react-redux';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const ListScreen = ({navigation}) => {
+const MyTagsScreen = ({navigation}) => {
   const {userEntryList} = useSelector(state => state.app);
   const [visible, setVisible] = useState(false);
 
@@ -19,18 +18,21 @@ const ListScreen = ({navigation}) => {
   const [list, setList] = useState([]);
 
   useEffect(() => {
-    contactPeopleListApi();
+      transactionTagsListApi();
   }, [sortBy]);
 
   const openMenu = () => setVisible(true);
 
   const closeMenu = () => setVisible(false);
 
-  const contactPeopleListApi = async () => {
-    let response = await contact_people_list_api({
+  const transactionTagsListApi = async () => {
+
+    let response = await transaction_tags_list_api({
       a_to_z: sortBy == 'a_to_z' ? 1 : '',
       z_to_a: sortBy == 'z_to_a' ? 1 : '',
     });
+
+    // console.log(response?.data?.list)
 
     if (response?.status == 1) {
       setList(response?.data?.list);
@@ -47,6 +49,7 @@ const ListScreen = ({navigation}) => {
   const renderItem = useCallback(({item, index}) => {
     return (
       <Pressable
+      onPress={() => navigation.navigate('TagsChat', {tag: item})}
         key={index}
         style={{
           padding: 10,
@@ -55,7 +58,7 @@ const ListScreen = ({navigation}) => {
           borderBottomWidth: 0.5,
         }}>
         <View style={{...styles.rowcenterbetween}}>
-          <Text style={{...styles.text}}>{item?.name}</Text>
+          <Text style={{...styles.text}}>#{item?.title}</Text>
 
           <View
             style={{
@@ -96,11 +99,12 @@ const ListScreen = ({navigation}) => {
     );
   });
 
+
   const keyExtractor = useCallback((item, index) => index.toString(), []);
 
   return (
     <View style={{flex: 1, backgroundColor: COLORS.WHITE}}>
-      <AppBar navigation={navigation} title={'List'} />
+      <AppBar navigation={navigation} title={'My Tags'} />
 
       <View style={{...styles.rowcenter, margin: 15}}>
         <CustomTextInput
@@ -158,13 +162,14 @@ const ListScreen = ({navigation}) => {
         {list?.length > 0 ? (
           <FlatList
             data={list}
-            contentContainerStyle={{paddingBottom: 400}}
+            contentContainerStyle={{paddingBottom: 200}}
             showsVerticalScrollIndicator={false}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
           />
         ) : (
-          <View style={{justifyContent: 'center', alignItems: 'center'}}>
+          <View
+            style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
             <Text style={{...styles.text}}>No Entry Found</Text>
           </View>
         )}
@@ -173,7 +178,7 @@ const ListScreen = ({navigation}) => {
   );
 };
 
-export default ListScreen;
+export default MyTagsScreen;
 
 const styles = StyleSheet.create({
   headerTitle: {

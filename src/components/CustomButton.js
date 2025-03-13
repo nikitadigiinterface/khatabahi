@@ -1,6 +1,7 @@
 import {StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 import React from 'react';
 import {ActivityIndicator, Button, useTheme} from 'react-native-paper';
+import {COLORS} from '../config/constants';
 
 const CustomButton = ({
   mode = 'contained',
@@ -26,16 +27,10 @@ const CustomButton = ({
         mode={mode}
         labelStyle={{
           ...styles.labelStyle,
-          color:
-            mode == 'contained'
-              ? theme.colors.background
-              : theme.colors.primary,
           ...textStyle,
         }}
         style={{
-          backgroundColor: mode == 'contained' ? theme.colors.primary : null,
-          borderWidth: mode == 'outlined' ? 1 : null,
-          borderColor: theme.colors.primary,
+          borderColor: mode == 'outlined' ? COLORS.PRIMARY : undefined,
           ...contStyle,
         }}
         contentStyle={{

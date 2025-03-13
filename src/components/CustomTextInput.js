@@ -40,6 +40,7 @@ const CustomTextInput = ({
   outlineColor,
   activeOutlineColor,
   onSubmitEditing,
+  onSelectionChange
 }) => {
   const theme = useTheme();
   return (
@@ -87,6 +88,7 @@ const CustomTextInput = ({
         onSubmitEditing={onSubmitEditing}
         cursorColor={COLORS.DARKGREY}
         selectionColor={COLORS.DARKGREY}
+        onSelectionChange={onSelectionChange}
       />
       {error ? <HelperText type="error">{error}</HelperText> : null}
     </View>

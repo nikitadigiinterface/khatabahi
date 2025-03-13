@@ -5,15 +5,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {setAppLoading, setUserEntryList} from '../redux/reducer/app';
 import {useDispatch} from 'react-redux';
 import LinearGradient from 'react-native-linear-gradient';
+import { setAccessToken, setIsLoggedIn, setUserData } from '../redux/reducer/user';
 
 const SplashScreen = ({navigation}) => {
   const dispatch = useDispatch();
 
   useEffect(() => {
     async function fetchData() {
-      let userEntryList = await AsyncStorage.getItem('userEntryList');
-      let list = JSON?.parse(userEntryList);
-      dispatch(setUserEntryList(list));
+     
+
+      let is_logged_in = await AsyncStorage.getItem('is_logged_in');
+      let userData = await AsyncStorage.getItem('userData');
+      let access_token = await AsyncStorage.getItem('access_token');
+      let q = JSON?.parse(userData);
+      dispatch(setUserData(q));
+      dispatch(setIsLoggedIn(is_logged_in));
+      dispatch(setAccessToken(access_token));
 
       setTimeout(() => {
         dispatch(setAppLoading(false));

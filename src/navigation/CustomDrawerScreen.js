@@ -1,4 +1,5 @@
 import {
+  Alert,
   Pressable,
   ScrollView,
   StatusBar,
@@ -6,12 +7,53 @@ import {
   Text,
   View,
 } from 'react-native';
-import React from 'react';
+import React, { useState } from 'react';
 import {COLORS} from '../config/constants';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import CustomButton from '../components/CustomButton';
+import {CommonActions} from '@react-navigation/native';
+import store from '../redux/store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  setAccessToken,
+  setIsLoggedIn,
+  setUserData,
+} from '../redux/reducer/user';
 
 const CustomDrawerScreen = ({navigation}) => {
+  const LogOut = async () => {
+    // const navigation = useNavigation();
+    Alert.alert('Confirm', 'Are you sure to want to logout?', [
+      {
+        text: 'No',
+        onPress: () => {
+          return false;
+        },
+        style: 'cancel',
+      },
+      {
+        text: 'Yes',
+        onPress: async () => {
+          await AsyncStorage.removeItem('access_token');
+          await AsyncStorage.removeItem('user_data');
+          await AsyncStorage.removeItem('is_logged_in');
+          store.dispatch(setAccessToken(null));
+          store.dispatch(setUserData(null));
+          store.dispatch(setIsLoggedIn(false));
+
+          navigation.dispatch(
+            CommonActions.reset({
+              index: 0,
+              routes: [{name: 'Login'}],
+            }),
+          );
+          // navigation.navigate('Login');
+          console.log('Logged out');
+        },
+      },
+    ]);
+  };
+
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
@@ -27,13 +69,31 @@ const CustomDrawerScreen = ({navigation}) => {
       </View>
 
       <View style={{...styles.card, marginTop: 25}}>
-        <Pressable style={{...styles.container}}>
+        <Pressable  style={{...styles.container}}>
           <FontAwesome5 name={'cog'} size={20} color={COLORS.PRIMARY} />
           <Text style={{...styles.title, marginLeft: 10}}>Settings</Text>
         </Pressable>
-        <Pressable onPress={() => navigation.navigate('List')} style={{...styles.container}}>
+        <Pressable
+          onPress={() => {
+            navigation.navigate('MyTags');
+            navigation.closeDrawer();
+          }}
+          style={{...styles.container}}>
+          <FontAwesome5
+            name={'comment-dots'}
+            size={20}
+            color={COLORS.PRIMARY}
+          />
+          <Text style={{...styles.title, marginLeft: 10}}>My Tags</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            navigation.navigate('List');
+            navigation.closeDrawer();
+          }}
+          style={{...styles.container}}>
           <FontAwesome5 name={'list-alt'} size={20} color={COLORS.PRIMARY} />
-          <Text style={{...styles.title, marginLeft: 10}}>List</Text>
+          <Text style={{...styles.title, marginLeft: 10}}>Contacts</Text>
         </Pressable>
         <Pressable style={{...styles.container}}>
           <FontAwesome5 name={'info-circle'} size={20} color={COLORS.PRIMARY} />
@@ -47,6 +107,7 @@ const CustomDrawerScreen = ({navigation}) => {
       </View>
 
       <CustomButton
+        onPress={LogOut}
         icon={'logout'}
         style={{marginTop: 50, marginHorizontal: 15}}>
         Log Out

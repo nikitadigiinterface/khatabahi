@@ -1,5 +1,6 @@
 import {
   Image,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,16 +14,66 @@ import CustomButton from '../../components/CustomButton';
 import {TextInput, useTheme} from 'react-native-paper';
 import {COLORS} from '../../config/constants';
 import {formData} from '../../config/formData';
+import { showMessage } from 'react-native-flash-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loginApi } from '../../api';
+import { useDispatch } from 'react-redux';
+import { setAccessToken, setIsLoggedIn, setUserData } from '../../redux/reducer/user';
 
 const LoginScreen = ({navigation}) => {
   const theme = useTheme();
+  const dispatch = useDispatch()
 
   const [isSecure, setIsSecure] = useState(true);
+  const [isLoading, setIsLoading] = useState(false)
+  const [valErrors, setValErrors] = useState({})
 
   const [formValues, handleFormValueChange, setFormValues] = formData({
     email: '',
     password: '',
   });
+
+  const user_login = async () => {
+    Keyboard.dismiss();
+    setValErrors({});
+    setIsLoading(true);
+
+    let response = await loginApi({
+      ...formValues,
+    
+    });
+
+    console.log(response)
+
+    if (response?.status == 1) {
+      dispatch(setIsLoggedIn(true));
+      dispatch(setAccessToken(response?.data?.token));
+      dispatch(setUserData(response?.data?.user));
+      await AsyncStorage.setItem(
+        'access_token',
+        response?.data?.token,
+      );
+      await AsyncStorage.setItem(
+        'userData',
+        JSON.stringify(response?.data?.user),
+      );
+      await AsyncStorage.setItem('is_logged_in', 'true');
+      showMessage({
+        message: response?.msg,
+        type: 'success',
+        icon: 'success',
+      });
+    } else {
+      setValErrors(response?.error_array);
+      response?.error &&
+        showMessage({
+          message: response?.error,
+          type: 'danger',
+          icon: 'danger',
+        });
+    }
+    setIsLoading(false);
+  };
 
   return (
     <View style={{flex: 1, padding: 15, backgroundColor: COLORS.WHITE}}>
@@ -34,16 +85,19 @@ const LoginScreen = ({navigation}) => {
           source={require('../../assets/images/logo.png')}
         />
 
-        <Text style={{...styles.header, marginVertical: 30}}>Log in to Continue</Text>
+        <Text style={{...styles.header, marginVertical: 30}}>
+          Log in to Continue
+        </Text>
         <CustomTextInput
           dense={true}
-        labelText={'Email'}
+          labelText={'Email'}
           keyboardType={'email-address'}
           value={formValues?.email || ''}
           onChangeText={text => handleFormValueChange('email', text)}
+          error={valErrors?.email}
         />
         <CustomTextInput
-        style={{marginTop: 20}}
+          style={{marginTop: 20}}
           dense={true}
           labelText={'Password'}
           value={formValues?.password || ''}
@@ -57,6 +111,7 @@ const LoginScreen = ({navigation}) => {
               onPress={() => setIsSecure(!isSecure)}
             />
           }
+          error={valErrors?.password}
         />
         <Pressable style={{marginTop: 10, padding: 5}} onPress={() => {}}>
           <Text
@@ -69,7 +124,9 @@ const LoginScreen = ({navigation}) => {
         </Pressable>
 
         <CustomButton
-          onPress={() => navigation.navigate('Drawer')}
+          onPress={user_login}
+          disabled={isLoading}
+          loading={isLoading}
           style={{marginTop: 40}}>
           Log in
         </CustomButton>
@@ -107,5 +164,5 @@ const styles = StyleSheet.create({
     color: COLORS.TEXT,
     fontFamily: 'Inter-Bold',
     fontSize: 20,
-  }
+  },
 });

@@ -1,17 +1,14 @@
-import {FlatList, Image, Pressable, StyleSheet, Text, View} from 'react-native';
+import {FlatList, Pressable, StyleSheet, Text, View} from 'react-native';
 import React, {useCallback, useEffect, useState} from 'react';
-import {COLORS} from '../config/constants';
-import CustomTextInput from '../components/CustomTextInput';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
-import moment from 'moment';
-import {useDispatch, useSelector} from 'react-redux';
+import {COLORS} from '../../config/constants';
 import {ActivityIndicator, Divider, Menu, TextInput} from 'react-native-paper';
-import AppBar from '../components/AppBar';
-import {transaction_history_api} from '../api';
-import {showMessage} from 'react-native-flash-message';
+import CustomTextInput from '../../components/CustomTextInput';
+import AppBar from '../../components/AppBar';
+import {useDispatch, useSelector} from 'react-redux';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import {transaction_tags_details_api} from '../../api';
 
-const HistoryScreen = ({navigation}) => {
+const TagsChatScreen = ({navigation, route}) => {
   const {userEntryList} = useSelector(state => state.app);
   const dispatch = useDispatch();
 
@@ -24,23 +21,24 @@ const HistoryScreen = ({navigation}) => {
 
   const [visible, setVisible] = useState(false);
 
-  const [list, setList] = useState([]);
+  const [list, setList] = useState([1, 2, 3, 4, 5]);
 
   useEffect(() => {
-    transactionHistoryApi();
+    transactionTagsDetailsApi();
   }, [sortBy, transactionType]);
 
   const closeMenu = () => setVisible(false);
 
-  const transactionHistoryApi = async () => {
+  const transactionTagsDetailsApi = async () => {
     let prevPage = 1;
-    let response = await transaction_history_api({
+    let response = await transaction_tags_details_api({
       transaction_type: transactionType || '',
       a_to_z: sortBy == 'a_to_z' ? 1 : '',
       z_to_a: sortBy == 'z_to_a' ? 1 : '',
       latest_first: sortBy == 'latest_first' ? 1 : '',
       oldest_first: sortBy == 'oldest_first' ? 1 : '',
       page: prevPage,
+      tag: route?.params?.tag?.title,
     });
 
     if (response?.status == 1) {
@@ -57,39 +55,39 @@ const HistoryScreen = ({navigation}) => {
     }
   };
 
-  const loadMore = async () => {
-    if (loadingMore) return;
+  // const loadMore = async () => {
+  //   if (loadingMore) return;
 
-    // console.log(page, totalPages);
+  //   // console.log(page, totalPages);
 
-    if (page < totalPages) {
-      console.log('Loading page: ' + (page + 1) + ' of ' + totalPages);
-      setLoadingMore(true);
+  //   if (page < totalPages) {
+  //     console.log('Loading page: ' + (page + 1) + ' of ' + totalPages);
+  //     setLoadingMore(true);
 
-      let res = await transaction_history_api({
-        page: page + 1,
-        transaction_type: transactionType || '',
-        a_to_z: sortBy == 'a_to_z' ? 1 : '',
-        z_to_a: sortBy == 'z_to_a' ? 1 : '',
-        latest_first: sortBy == 'latest_first' ? 1 : '',
-        oldest_first: sortBy == 'oldest_first' ? 1 : '',
-      });
+  //     let res = await transaction_history_api({
+  //       page: page + 1,
+  //       transaction_type: transactionType || '',
+  //       a_to_z: sortBy == 'a_to_z' ? 1 : '',
+  //       z_to_a: sortBy == 'z_to_a' ? 1 : '',
+  //       latest_first: sortBy == 'latest_first' ? 1 : '',
+  //       oldest_first: sortBy == 'oldest_first' ? 1 : '',
+  //     });
 
-      if (res) {
-        if (res?.status == 1) {
-          setList(prev => [...prev, ...res?.data?.list]);
-          setPage(prev => prev + 1);
-        }
-      }
-      setLoadingMore(false);
-    }
-  };
+  //     if (res) {
+  //       if (res?.status == 1) {
+  //         setList(prev => [...prev, ...res?.data?.list]);
+  //         setPage(prev => prev + 1);
+  //       }
+  //     }
+  //     setLoadingMore(false);
+  //   }
+  // };
 
   const renderItem = useCallback(({item, index}) => {
     return (
       <Pressable
         key={index}
-        onPress={() => navigation.navigate('AddEntry', {data: item})}
+        // onPress={() => navigation.navigate('AddEntry', {data: item})}
         style={{
           padding: 10,
           borderBottomColor: COLORS.LIGHTGREY,
@@ -114,16 +112,8 @@ const HistoryScreen = ({navigation}) => {
               {item?.contact_person?.name}
             </Text>
           </View>
-          {/* <Pressable style={{padding: 5}} onPress={() => deleteEntry(item)}>
-            <FontAwesome5 name="trash-alt" size={18} color={COLORS.SECONDARY} />
-          </Pressable> */}
         </View>
-        {/* <View style={{...styles.container, marginTop: 5}}>
-          <FontAwesome5 name="file-invoice" size={18} color={COLORS.DARKGREY} />
-          <Text style={{...styles.text, marginLeft: 8}}>
-            {item?.desc.join(', ')}
-          </Text>
-        </View> */}
+
         <View
           style={{
             ...styles.container,
@@ -132,21 +122,15 @@ const HistoryScreen = ({navigation}) => {
           }}>
           <View style={{...styles.container}}>
             <Text style={{...styles.text2}}>
-              {item?.transaction_type == 'credit' ? '+' : '-'} {item?.amount} #
-              {item?.tags?.map(tag => tag?.title)?.join(', #')}
+              {item?.transaction_type == 'credit' ? '+' : '-'} {item?.amount}{' '}
+              {'  '} #
+              {item?.transaction_tag
+                ? JSON?.parse(item?.transaction_tag)
+                    ?.map(tag => tag?.title)
+                    ?.join(', #')
+                : ''}
             </Text>
           </View>
-
-          {/* <View style={{...styles.container}}>
-            <FontAwesome5
-              name="calendar-alt"
-              size={18}
-              color={COLORS.DARKGREY}
-            />
-            <Text style={{...styles.text, marginLeft: 5}}>
-              {moment(item?.updated_at).format('DD-MM-YYYY') || ''}
-            </Text>
-          </View> */}
         </View>
       </Pressable>
     );
@@ -160,41 +144,11 @@ const HistoryScreen = ({navigation}) => {
     );
   };
 
-  const sortingName = type => {
-    let newData = [...list];
-    newData.sort(function (a, b) {
-      var nameA = a.name.toLowerCase(),
-        nameB = b.name.toLowerCase();
-      if (nameA < nameB)
-        //sort string ascending
-        return -1;
-      if (nameA > nameB) return 1;
-      return 0; //default return value (no sorting)
-    });
-
-    if (type == 'AZ') setList(newData);
-    else if (type == 'ZA') setList(newData.reverse());
-    closeMenu();
-  };
-
-  const sortingDate = type => {
-    let newData = [...list];
-    newData.sort(function (a, b) {
-      var c = new Date(a.date);
-      var d = new Date(b.date);
-      return c - d;
-    });
-
-    if (type == 'oldest') setList(newData);
-    else if (type == 'latest') setList(newData.reverse());
-    closeMenu();
-  };
-
   const keyExtractor = useCallback((item, index) => index.toString(), []);
 
   return (
     <View style={{flex: 1, backgroundColor: COLORS.WHITE}}>
-      <AppBar navigation={navigation} title={'History'} />
+      <AppBar navigation={navigation} title={`#${route?.params?.tag?.title}`} />
 
       <View style={{flex: 1}}>
         <View style={{...styles.rowcenter, margin: 15}}>
@@ -274,64 +228,6 @@ const HistoryScreen = ({navigation}) => {
         </View>
 
         <View style={{...styles.card}}>
-          <View style={{...styles.rowcenter}}>
-            <Pressable
-              onPress={() => {
-                setTransactionType('');
-              }}
-              style={{
-                ...styles.historyTypeContainer,
-                borderBottomWidth: transactionType == '' ? 1 : 0,
-              }}>
-              <Text
-                style={{
-                  ...styles.text,
-                  color:
-                    transactionType == '' ? COLORS.PRIMARY : COLORS.DARKGREY,
-                }}>
-                All
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setTransactionType('debit');
-              }}
-              style={{
-                ...styles.historyTypeContainer,
-                borderBottomWidth: transactionType == 'debit' ? 1 : 0,
-              }}>
-              <Text
-                style={{
-                  ...styles.text,
-                  color:
-                    transactionType == 'debit'
-                      ? COLORS.PRIMARY
-                      : COLORS.DARKGREY,
-                }}>
-                Debit
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setTransactionType('credit');
-              }}
-              style={{
-                ...styles.historyTypeContainer,
-                borderBottomWidth: transactionType == 'credit' ? 1 : 0,
-              }}>
-              <Text
-                style={{
-                  ...styles.text,
-                  color:
-                    transactionType == 'credit'
-                      ? COLORS.PRIMARY
-                      : COLORS.DARKGREY,
-                }}>
-                Credit
-              </Text>
-            </Pressable>
-          </View>
-
           {list?.length > 0 ? (
             <FlatList
               data={list}
@@ -339,23 +235,24 @@ const HistoryScreen = ({navigation}) => {
               showsVerticalScrollIndicator={false}
               renderItem={renderItem}
               keyExtractor={keyExtractor}
-              onScroll={({nativeEvent}) => {
-                if (isCloseToBottom(nativeEvent)) {
-                  loadMore();
-                }
-              }}
-              ListFooterComponent={() => {
-                return loadingMore ? (
-                  <ActivityIndicator
-                    size={30}
-                    animating
-                    style={{marginVertical: 16}}
-                  />
-                ) : null;
-              }}
+              // onScroll={({nativeEvent}) => {
+              //   if (isCloseToBottom(nativeEvent)) {
+              //     loadMore();
+              //   }
+              // }}
+              // ListFooterComponent={() => {
+              //   return loadingMore ? (
+              //     <ActivityIndicator
+              //       size={30}
+              //       animating
+              //       style={{marginVertical: 16}}
+              //     />
+              //   ) : null;
+              // }}
             />
           ) : (
-            <View style={{justifyContent: 'center', alignItems: 'center'}}>
+            <View
+              style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
               <Text style={{...styles.text}}>No Entry Found</Text>
             </View>
           )}
@@ -365,7 +262,7 @@ const HistoryScreen = ({navigation}) => {
   );
 };
 
-export default HistoryScreen;
+export default TagsChatScreen;
 
 const styles = StyleSheet.create({
   headerTitle: {
@@ -389,6 +286,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 2.22,
     elevation: 5,
+    flex: 1,
   },
   container: {
     flexDirection: 'row',

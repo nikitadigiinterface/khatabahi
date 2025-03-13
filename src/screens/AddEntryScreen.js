@@ -19,6 +19,8 @@ import moment from 'moment';
 import {showMessage} from 'react-native-flash-message';
 import {COLORS} from '../config/constants';
 import CustomTextInput from '../components/CustomTextInput';
+import AppBar from '../components/AppBar';
+import {contact_person_list_api, transaction_add_update_api} from '../api';
 
 const PEOPLE = [
   {
@@ -42,39 +44,64 @@ const IDENTIFIERS = ['+', '-', '#', '@'];
 
 const AddEntryScreen = ({navigation, route}) => {
   const {userEntryList} = useSelector(state => state.app);
+  const [selectionStart, setSelectionStart] = useState(0);
 
   const dispatch = useDispatch();
 
   const [addDate, setAddDate] = useState(
-    route?.params?.data?.date
-      ? new Date(route?.params?.data?.date)
+    route?.params?.data?.updated_at
+      ? new Date(route?.params?.data?.updated_at)
       : new Date(),
   );
   const [openDateModal, setOpenDateModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [personListVisible, setPersonListVisible] = useState(false);
 
-  const [personList, setPersonList] = useState(userEntryList);
+  const [personList, setPersonList] = useState([]);
 
   const [personSelected, setPersonSelected] = useState(null);
 
+  // console.log(route?.params?.data);
+
   const [personName, setPersonName] = useState('');
-  const [personDesc, setPersonDesc] = useState('');
+  const [personDesc, setPersonDesc] = useState([]);
   const [personAmount, setPersonAmount] = useState('');
   const [personAmountType, setPersonAmountType] = useState('');
+  const [personId, setPersonId] = useState(
+    route?.params?.data?.contact_person_id || '',
+  );
+  const [userId, setUserId] = useState(route?.params?.data?.id || '');
   const [inputText, setInputText] = useState(
-    route?.params?.data?.name
-      ? `@${route?.params?.data?.name} #${route?.params?.data?.desc.join(
-          ', ',
-        )} ${route?.params?.data?.amountType}${route?.params?.data?.amount}`
+    route?.params?.data?.transaction_string
+      ? route?.params?.data?.transaction_string
       : '',
   );
+
+  useEffect(() => {
+    if (personId) {
+      const matchedPerson = personList?.find(person => person.id == personId);
+      console.log('m', matchedPerson);
+      if (matchedPerson?.name != personName && personName != "") {
+        console.log('ma')
+        setPersonId(''); // Assign ID if name exists
+      } 
+    }
+  }, [personId]);
+
+  useEffect(() => {
+    async function fetchData() {
+      await contact_person_list();
+    }
+    fetchData();
+  }, [personName]);
 
   useEffect(() => {
     let name = '';
     let description = '';
     let amount = '';
     let amountType = '';
+    let isCursorInPersonListRange = false;
 
     const indexOfAt = inputText.indexOf('@');
     const indexOfHash = inputText.indexOf('#');
@@ -82,7 +109,6 @@ const AddEntryScreen = ({navigation, route}) => {
     const indexOfMinus = inputText.indexOf('-');
 
     if (indexOfAt > -1) {
-      setPersonListVisible(true);
       const nextIdentifierIndex = IDENTIFIERS.map(id =>
         inputText.indexOf(id, indexOfAt + 1),
       )
@@ -93,23 +119,17 @@ const AddEntryScreen = ({navigation, route}) => {
         ? inputText.slice(indexOfAt + 1, nextIdentifierIndex)
         : inputText.slice(indexOfAt + 1);
 
-      setPersonName(name.trim());
-      if (name.trim().length > 0) {
-        setPersonList(
-          userEntryList.filter(item =>
-            item.name.toLowerCase().includes(name.trim().toLowerCase()),
-          ),
-        );
+      setPersonName(name?.trim());
 
-    
-        personList?.length > 0
-          ? setPersonListVisible(true)
-          : nextIdentifierIndex
-          ? setPersonListVisible(false)
-          : setPersonListVisible(false);
-      } else {
-        setPersonList(userEntryList);
+      // Check if cursor is within @ and the next identifier
+      if (
+        selectionStart > indexOfAt &&
+        (nextIdentifierIndex ? selectionStart < nextIdentifierIndex : true)
+      ) {
+        isCursorInPersonListRange = true;
       }
+
+      contact_person_list();
     }
 
     if (indexOfHash > -1) {
@@ -117,7 +137,7 @@ const AddEntryScreen = ({navigation, route}) => {
       let descData = [];
 
       for (let i = 0; i < inputText.length; i++) {
-        if (inputText[i] == '#') {
+        if (inputText[i] === '#') {
           hashCountIndex.push(i);
         }
       }
@@ -133,8 +153,17 @@ const AddEntryScreen = ({navigation, route}) => {
           ? inputText.slice(hashCountIndex[i] + 1, nextIdentifierIndex)
           : inputText.slice(hashCountIndex[i] + 1);
 
-        descData.push(description.trim());
+        descData.push(`${description.trim()}`);
+
+        // Check if cursor is within # and next identifier
+        if (
+          selectionStart > hashCountIndex[i] &&
+          (nextIdentifierIndex ? selectionStart < nextIdentifierIndex : true)
+        ) {
+          isCursorInPersonListRange = false;
+        }
       }
+
       setPersonDesc(descData);
     }
 
@@ -159,7 +188,26 @@ const AddEntryScreen = ({navigation, route}) => {
       setPersonAmount(amount.trim());
       setPersonAmountType(amountType);
     }
-  }, [inputText, personSelected]);
+
+    // Set visibility based on cursor position
+    setPersonListVisible(isCursorInPersonListRange);
+  }, [inputText, personSelected, selectionStart]);
+
+  const contact_person_list = async () => {
+    let response = await contact_person_list_api({
+      name: personName,
+    });
+    if (response?.status == 1) {
+      setPersonList(response?.data?.list);
+    } else {
+      response?.error &&
+        showMessage({
+          message: response?.error,
+          type: 'danger',
+          icon: 'danger',
+        });
+    }
+  };
 
   const handleInputChnage = text => {
     if (
@@ -197,48 +245,83 @@ const AddEntryScreen = ({navigation, route}) => {
 
   const onAddEntry = async () => {
     Keyboard.dismiss();
+    let transaction_tag_list = [...(route?.params?.data?.tags || [])];
 
-    if (personName == '') {
-      showMessage({
-        message: 'Add Person Name',
-        type: 'danger',
-        icon: 'danger',
-      });
-    } else if (personDesc == '') {
-      showMessage({
-        message: 'Add Description',
-        type: 'danger',
-        icon: 'danger',
-      });
-    } else if (personAmount == '') {
-      showMessage({
-        message: 'Add Amount',
-        type: 'danger',
-        icon: 'danger',
-      });
-    } else {
+    let transactionTag = [];
+
+    for (let i = 0; i < personDesc?.length; i++) {
+      let tag = transaction_tag_list?.find(
+        item => item?.title == personDesc[i],
+      );
+      if (tag) {
+        transactionTag.push({
+          id: tag?.id,
+          title: personDesc[i],
+        });
+      } else {
+        transactionTag.push({
+          id: '',
+          title: personDesc[i],
+        });
+      }
+    }
+
+    let newEntry = {
+      id: userId,
+      person_id: personId,
+      name: personName,
+      transaction_tag: transactionTag,
+      amount: personAmount,
+      transactionType: personAmountType,
+      transactionDate: moment(addDate).format('DD/MM/YYYY'),
+      transaction_string: inputText,
+    };
+
+    console.log(newEntry);
+
+    setIsLoading(true);
+
+    let response = await transaction_add_update_api({
+      ...newEntry,
+    });
+
+    console.log(response);
+
+    if (response?.status == 1) {
+      // if (personName == '') {
+      //   showMessage({
+      //     message: 'Add Person Name',
+      //     type: 'danger',
+      //     icon: 'danger',
+      //   });
+      // } else if (personDesc == '') {
+      //   showMessage({
+      //     message: 'Add Description',
+      //     type: 'danger',
+      //     icon: 'danger',
+      //   });
+      // } else if (personAmount == '') {
+      //   showMessage({
+      //     message: 'Add Amount',
+      //     type: 'danger',
+      //     icon: 'danger',
+      //   });
+      // } else {
+
       setInputText('');
 
-      let newEntry = {
-        name: personName,
-        desc: personDesc,
-        amount: personAmount,
-        amountType: personAmountType,
-        date: moment(addDate).format('YYYY-MM-DD'),
-      };
+      // let entryList = [...(userEntryList || [])];
+      // if (route?.params?.data) {
+      //   let dataindex = entryList.indexOf(route?.params?.data);
+      //   entryList[dataindex] = newEntry;
 
-      let entryList = [...(userEntryList || [])];
-      if (route?.params?.data) {
-        let dataindex = entryList.indexOf(route?.params?.data);
-        entryList[dataindex] = newEntry;
-
-        await AsyncStorage.setItem('userEntryList', JSON.stringify(entryList));
-        dispatch(setUserEntryList(entryList));
-      } else {
-        entryList?.push(newEntry);
-        await AsyncStorage.setItem('userEntryList', JSON.stringify(entryList));
-        dispatch(setUserEntryList(entryList));
-      }
+      //   await AsyncStorage.setItem('userEntryList', JSON.stringify(entryList));
+      //   dispatch(setUserEntryList(entryList));
+      // } else {
+      //   entryList?.push(newEntry);
+      //   await AsyncStorage.setItem('userEntryList', JSON.stringify(entryList));
+      //   dispatch(setUserEntryList(entryList));
+      // }
       navigation.navigate('Drawer');
       showMessage({
         message: 'Entry Added Successfully',
@@ -247,35 +330,62 @@ const AddEntryScreen = ({navigation, route}) => {
       });
 
       setPersonName('');
-      setPersonDesc('');
+      setPersonDesc([]);
       setPersonAmount('');
       setPersonAmountType('');
+      // }
+    } else {
+      response?.error &&
+        showMessage({
+          message: response?.error,
+          type: 'danger',
+          icon: 'danger',
+        });
     }
+  };
+
+  const onPersonSelect = async(value) => {
+    console.log('Selected Item ID:', value?.id);
+
+    // Ensure personId is updated on first click
+    setPersonId(value?.id);
+
+    const indexOfAt = inputText.indexOf('@');
+    if (indexOfAt === -1) return; // No "@" found, do nothing
+
+    // Find the nearest identifier (#, +, -, etc.)
+    let nextIdentifierIndex = inputText.length; // Default to end of text
+    IDENTIFIERS.forEach(id => {
+      const idx = inputText.indexOf(id, indexOfAt + 1);
+      if (idx > -1 && idx < nextIdentifierIndex) {
+        nextIdentifierIndex = idx;
+      }
+    });
+
+    // Construct the updated inputText
+    const updatedText =
+      nextIdentifierIndex !== inputText.length
+        ? inputText.slice(0, indexOfAt + 1) +
+          value?.name +
+          ' ' +
+          inputText.slice(nextIdentifierIndex) // Replace within range
+        : inputText.slice(0, indexOfAt + 1) + value?.name + ' '; // No identifier found, add space
+
+    setInputText(updatedText);
+
+
+    // Close the list immediately
+    setPersonListVisible(false);
   };
 
   return (
     <View style={{flex: 1, backgroundColor: COLORS.WHITE}}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          margin: 15,
-        }}>
-        <Pressable onPress={()=> navigation.goBack()} style={{}}>
-        <Image source={require('../assets/images/icons/backArrow.png')} />
-        </Pressable>
-       
-        <Text
-          style={{
-            ...styles.title,
-            fontSize: 18,
-            marginLeft: 15
-          }}>
-          {route?.params?.data?.name || 'Add New Entry'}
-        </Text>
-      </View>
+      <AppBar
+        navigation={navigation}
+        title={route?.params?.data?.contact_person?.name || 'Add New Entry'}
+      />
 
-      <Pressable
+      {/* <Pressable
         onPress={() => setOpenDateModal(true)}
         style={{
           padding: 12,
@@ -293,17 +403,21 @@ const AddEntryScreen = ({navigation, route}) => {
           }}>
           Add Date
         </Text>
-      </Pressable>
+      </Pressable> */}
+
       <View style={{...styles.container}}>
         <Text style={{...styles.title}}>Name: {personName}</Text>
-        <Text style={{...styles.title, marginTop: 5}}>Desc: {personDesc}</Text>
+        <Text style={{...styles.title, marginTop: 5}}>
+          Desc: {personDesc ? personDesc?.join(', ') : ''}
+        </Text>
         <Text style={{...styles.title, marginTop: 5}}>
           Amount: {personAmountType} {personAmount}
         </Text>
-        <Text style={{...styles.title, marginTop: 5}}>
+        {/* <Text style={{...styles.title, marginTop: 5}}>
           Date: {addDate ? moment(addDate).format('DD/MM/YYYY') : ''}
-        </Text>
+        </Text> */}
       </View>
+
 
       <View
         style={{
@@ -313,6 +427,7 @@ const AddEntryScreen = ({navigation, route}) => {
           bottom: 15,
           position: 'absolute',
         }}>
+        {personList?.length ? (
         <View
           style={{
             maxHeight: 200,
@@ -332,18 +447,14 @@ const AddEntryScreen = ({navigation, route}) => {
                 <Pressable
                   key={index}
                   style={{paddingVertical: 12, marginBottom: 2}}
-                  onPress={() => {
-                    setPersonSelected(item?.name);
-
-                    setInputText(inputText.replace(personName, item?.name));
-                    // setInputText('@'.concat(item.name + ' '))
-                  }}>
+                  onPress={() => onPersonSelect(item)}>
                   <Text style={{...styles.title}}>{item?.name}</Text>
                 </Pressable>
               );
             }}
           />
         </View>
+        ) : null}
         {/* <View
           style={{
             flexDirection: 'row',
@@ -355,16 +466,19 @@ const AddEntryScreen = ({navigation, route}) => {
             style={{padding: 5}}>
             <FontAwesome5 name="home" size={25} color={COLORS.PRIMARY} />
           </Pressable> */}
-          <CustomTextInput
-            // style={{width: '85%'}}
-            dense={true}
-            placeholder="Message...."
-            multiline={true}
-            value={inputText || ''}
-            onChangeText={text => handleInputChnage(text)}
-            right={<TextInput.Icon icon={'send'} onPress={onAddEntry} />}
-            contentStyle={{paddingTop: 10}}
-          />
+        <CustomTextInput
+          // style={{width: '85%'}}
+          dense={true}
+          placeholder="Eg: @Name #cake #taxi +400"
+          multiline={true}
+          value={inputText || ''}
+          onChangeText={text => handleInputChnage(text)}
+          right={<TextInput.Icon icon={'send'} onPress={onAddEntry} />}
+          contentStyle={{paddingTop: 10}}
+          onSelectionChange={event =>
+            setSelectionStart(event.nativeEvent.selection.start)
+          }
+        />
         {/* </View> */}
       </View>
 
